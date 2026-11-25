@@ -7,7 +7,7 @@ import pytest
 
 from ai_coder.config import Settings
 from ai_coder.llm_client import LLMError, MockClient, OllamaClient, OpenAICompatClient, make_client
-from ai_coder.workspace import Workspace, parse_pytest_counts
+from ai_coder.workspace import Workspace, parse_pytest_counts, safe_test_env
 
 
 def test_write_read_list_and_path_escape(tmp_path):
@@ -115,3 +115,18 @@ def test_openai_client_retries_rate_limit_and_counts_reasoning(monkeypatch):
     assert text == "ok" and sleeps == [1.0]
     assert payloads[0]["reasoning_effort"] == "low"
     assert record.prompt_tokens == 10 and record.completion_tokens == 30
+
+
+def test_safe_test_env_drops_secrets():
+    env = safe_test_env({"LLM_API_KEY": "sk-1", "GEMINI_API_KEY": "g", "GITHUB_TOKEN": "t",
+                         "DB_PASSWORD": "p", "PATH": "/bin", "AUTHOR_NAME": "Me", "LLM_MODEL": "m"})
+    assert env == {"PATH": "/bin", "AUTHOR_NAME": "Me", "LLM_MODEL": "m"}
+
+
+def test_generated_tests_cannot_read_api_key(tmp_path, monkeypatch):
+    monkeypatch.setenv("LLM_API_KEY", "sk-secret")
+    ws = Workspace(tmp_path)
+    ws.write_files({"tests/test_env.py": (
+        "import os\n\ndef test_no_key():\n    assert 'LLM_API_KEY' not in os.environ\n")})
+    report = ws.run_tests(timeout=60)
+    assert report["success"], report["output"]

@@ -17,6 +17,20 @@ from pathlib import Path
 
 SKIP_DIRS = {"__pycache__", ".pytest_cache", ".git", ".venv", "venv"}
 
+# Environment variables whose names contain one of these words are treated as
+# secrets and never handed to generated code (it is untrusted LLM output).
+SECRET_MARKERS = ("KEY", "TOKEN", "SECRET", "PASSWORD", "PASSWD", "CREDENTIAL")
+
+
+def safe_test_env(base: dict[str, str] | None = None) -> dict[str, str]:
+    """Copy of the environment without secrets, for running generated code.
+
+    The pipeline needs LLM_API_KEY (and the user may have other keys set), but
+    the generated project and its tests are written by an LLM and must not be
+    able to read or leak them."""
+    env = dict(os.environ if base is None else base)
+    return {k: v for k, v in env.items() if not any(m in k.upper() for m in SECRET_MARKERS)}
+
 
 class Workspace:
     """A sandboxed project directory. All paths are relative to `root`."""
@@ -101,8 +115,11 @@ class Workspace:
         return "\n".join(lines).strip()
 
     def run_tests(self, timeout: int = 120) -> dict:
-        """Run pytest in the workspace and return counts plus output."""
-        env = dict(os.environ)
+        """Run pytest in the workspace and return counts plus output.
+
+        The generated code runs with secrets (API keys, tokens) removed from
+        its environment; see `safe_test_env`."""
+        env = safe_test_env()
         env["PYTHONPATH"] = str(self.root) + os.pathsep + env.get("PYTHONPATH", "")
         env["PYTHONDONTWRITEBYTECODE"] = "1"
         cmd = [sys.executable, "-m", "pytest", "-q", "--tb=short", "--color=no",

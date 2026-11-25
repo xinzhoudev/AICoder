@@ -68,6 +68,10 @@ Analyst ─▶ Architect ─▶ Coder ─▶ Tester ─▶ run_tests ──pass�
 The orchestrator is deterministic code, not another LLM: the order of steps never changes for
 this task, so an LLM "manager" would only add API calls and tokens.
 
+**Generated code runs without secrets.** `run_tests` executes LLM-written code, so it starts
+pytest with an environment from which every variable whose name contains `KEY`, `TOKEN`,
+`SECRET`, `PASSWORD` or `CREDENTIAL` (e.g. `LLM_API_KEY`) has been removed.
+
 ## 2. Token and API-call efficiency
 
 The project is graded on token usage and API calls, so the design minimises both:
