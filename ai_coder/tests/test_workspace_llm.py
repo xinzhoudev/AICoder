@@ -144,3 +144,27 @@ def test_snapshot_and_restore(tmp_path):
     assert ws.restore("s") == []
     with pytest.raises(KeyError):
         ws.restore("missing")
+
+
+def test_openai_client_json_mode_with_fallback(monkeypatch):
+    """JSON mode is sent as response_format; a server that rejects it is retried
+    once without it and not asked again."""
+    payloads = []
+
+    def fake_post(url, json, headers, timeout):
+        payloads.append(dict(json))
+        if "response_format" in json:
+            return httpx.Response(400, json={"error": "response_format not supported"},
+                                  request=httpx.Request("POST", url))
+        return httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}],
+                                         "usage": {"prompt_tokens": 1, "completion_tokens": 1}},
+                              request=httpx.Request("POST", url))
+    monkeypatch.setattr(httpx, "post", fake_post)
+    client = OpenAICompatClient(Settings(provider="openai", max_retries=0))
+    assert client.chat("analyst", "s", "u", json_mode=True)[0] == "{}"
+    assert payloads[0]["response_format"] == {"type": "json_object"}
+    assert "response_format" not in payloads[1]
+    client.chat("architect", "s", "u", json_mode=True)
+    assert len(payloads) == 3 and "response_format" not in payloads[2]
+    client.chat("coder", "s", "u")  # plain calls never send it
+    assert "response_format" not in payloads[3]

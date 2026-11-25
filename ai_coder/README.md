@@ -95,8 +95,9 @@ The project is graded on token usage and API calls, so the design minimises both
    files that fail to compile.
 6. **No LLM for boilerplate**: `__init__.py`, `conftest.py`, the generated README, author
    headers and the ZIP are produced by code.
-7. **JSON mode** (Ollama `format: json`) for Analyst and Architect to avoid failed parses and
-   their retries.
+7. **JSON mode** for Analyst and Architect to avoid failed parses and their retries: Ollama's
+   `format: json`, or `response_format: json_object` on OpenAI-compatible servers (Gemini,
+   vLLM, LM Studio). A server that rejects it is detected once and then called without it.
 
 ## 3. LLM usage tracking
 
@@ -219,7 +220,7 @@ needs to see working in the demo.
 ## 7. Tests for AI Coder itself
 
 ```bash
-python -m pytest -q          # 29 tests, offline (mock LLM), about 15 s
+python -m pytest -q          # 30 tests, offline (mock LLM), about 15 s
 ```
 
 They cover output parsing, usage tracking, workspace tools, both LLM clients (with a faked

@@ -37,7 +37,7 @@ class BaseClient:
         """Send one system+user exchange and return (reply_text, usage_record).
 
         `json_mode` asks the server to constrain output to valid JSON where
-        supported (Ollama's `format: json`); other servers ignore it."""
+        supported (Ollama's `format: json`, OpenAI-style `response_format`)."""
         raise NotImplementedError
 
     def _record(self, agent: str, prompt: str, reply: str, started: float,
@@ -94,6 +94,11 @@ class OpenAICompatClient(BaseClient):
 
     RETRY_STATUS = {429, 500, 502, 503, 504}
 
+    def __init__(self, settings: Settings) -> None:
+        """Keep the settings; JSON mode is assumed supported until a server rejects it."""
+        super().__init__(settings)
+        self._json_unsupported = False
+
     def chat(self, agent, system, user, max_tokens=4096, json_mode=False):
         """Call POST /chat/completions and return text plus usage.
 
@@ -111,22 +116,18 @@ class OpenAICompatClient(BaseClient):
         }
         if self.settings.reasoning_effort:
             payload["reasoning_effort"] = self.settings.reasoning_effort
+        if json_mode and not self._json_unsupported:
+            # OpenAI's JSON mode; also accepted by Gemini, Ollama /v1, vLLM and LM Studio.
+            payload["response_format"] = {"type": "json_object"}
         headers = {"Authorization": f"Bearer {self.settings.api_key}"}
         started = time.time()
-        resp = None
-        for attempt in range(self.settings.max_retries + 1):
-            try:
-                resp = httpx.post(url, json=payload, headers=headers, timeout=self.settings.request_timeout)
-            except httpx.HTTPError as exc:
-                if attempt == self.settings.max_retries:
-                    raise LLMError(f"Request to {url} failed: {exc}") from exc
-                time.sleep(2 ** attempt * 2)
-                continue
-            if resp.status_code in self.RETRY_STATUS and attempt < self.settings.max_retries:
-                wait = resp.headers.get("retry-after")
-                time.sleep(float(wait) if wait and wait.replace(".", "", 1).isdigit() else 2 ** attempt * 5)
-                continue
-            break
+        resp = self._post(url, payload, headers)
+        if resp.status_code == 400 and "response_format" in payload:
+            # Server rejects JSON mode: remember that and fall back to plain text.
+            # The agents still parse JSON from plain replies, so nothing breaks.
+            self._json_unsupported = True
+            payload.pop("response_format")
+            resp = self._post(url, payload, headers)
         if resp.status_code >= 400:
             raise LLMError(f"Request to {url} failed: HTTP {resp.status_code}: {resp.text[:500]}")
         data = resp.json()
@@ -142,6 +143,24 @@ class OpenAICompatClient(BaseClient):
             completion_t = max(completion_t or 0, total_t - prompt_t)
         record = self._record(agent, system + user, text, started, prompt_t, completion_t)
         return text, record
+
+    def _post(self, url: str, payload: dict, headers: dict) -> httpx.Response:
+        """POST with retries for connection errors, rate limits and 5xx responses."""
+        resp = None
+        for attempt in range(self.settings.max_retries + 1):
+            try:
+                resp = httpx.post(url, json=payload, headers=headers, timeout=self.settings.request_timeout)
+            except httpx.HTTPError as exc:
+                if attempt == self.settings.max_retries:
+                    raise LLMError(f"Request to {url} failed: {exc}") from exc
+                time.sleep(2 ** attempt * 2)
+                continue
+            if resp.status_code in self.RETRY_STATUS and attempt < self.settings.max_retries:
+                wait = resp.headers.get("retry-after")
+                time.sleep(float(wait) if wait and wait.replace(".", "", 1).isdigit() else 2 ** attempt * 5)
+                continue
+            break
+        return resp
 
 
 class MockClient(BaseClient):
