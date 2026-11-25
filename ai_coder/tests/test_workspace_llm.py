@@ -130,3 +130,17 @@ def test_generated_tests_cannot_read_api_key(tmp_path, monkeypatch):
         "import os\n\ndef test_no_key():\n    assert 'LLM_API_KEY' not in os.environ\n")})
     report = ws.run_tests(timeout=60)
     assert report["success"], report["output"]
+
+
+def test_snapshot_and_restore(tmp_path):
+    ws = Workspace(tmp_path)
+    ws.write_files({"a.py": "x = 1\n", "pkg/b.py": "y = 2\n"})
+    assert ws.snapshot("s") == 2
+    ws.write_files({"a.py": "x = 99\n", "new.py": "z = 3\n"})
+    (tmp_path / "pkg" / "b.py").unlink()
+    assert ws.restore("s") == ["a.py", "new.py", "pkg/b.py"]
+    assert ws.read_files(["a.py", "pkg/b.py"]) == {"a.py": "x = 1\n", "pkg/b.py": "y = 2\n"}
+    assert ws.list_files() == ["a.py", "pkg/b.py"]
+    assert ws.restore("s") == []
+    with pytest.raises(KeyError):
+        ws.restore("missing")

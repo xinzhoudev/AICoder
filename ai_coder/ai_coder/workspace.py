@@ -39,6 +39,7 @@ class Workspace:
         """Create the workspace (and its folder) at `root`."""
         self.root = Path(root).resolve()
         self.root.mkdir(parents=True, exist_ok=True)
+        self._snapshots: dict[str, dict[str, bytes]] = {}
 
     def _safe(self, rel_path: str) -> Path:
         """Resolve a relative path and refuse anything outside the root."""
@@ -137,6 +138,35 @@ class Workspace:
         counts.update({"exit_code": exit_code, "output": output,
                        "success": exit_code == 0 and counts["passed"] > 0})
         return counts
+
+    def snapshot(self, name: str = "default") -> int:
+        """Remember the current content of every file under `name`; returns the file count.
+
+        Snapshots live in memory for the lifetime of this object (one
+        workspace server process per job), so taking one costs no tokens."""
+        self._snapshots[name] = {rel: self._safe(rel).read_bytes() for rel in self.list_files()}
+        return len(self._snapshots[name])
+
+    def restore(self, name: str = "default") -> list[str]:
+        """Put the workspace back to snapshot `name`.
+
+        Files changed since the snapshot are rewritten and files created
+        since then are deleted. Returns the relative paths that changed."""
+        if name not in self._snapshots:
+            raise KeyError(f"No snapshot named '{name}'")
+        saved = self._snapshots[name]
+        changed = []
+        for rel in self.list_files():
+            if rel not in saved:
+                self._safe(rel).unlink()
+                changed.append(rel)
+        for rel, content in saved.items():
+            path = self._safe(rel)
+            if not path.is_file() or path.read_bytes() != content:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(content)
+                changed.append(rel)
+        return sorted(changed)
 
     def add_headers(self, header: str) -> list[str]:
         """Prepend `header` to every .py file that does not already have an author line."""

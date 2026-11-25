@@ -51,6 +51,7 @@ class RunResult:
     test_report: dict = field(default_factory=dict)
     usage: dict = field(default_factory=dict)
     fix_rounds: int = 0
+    rounds: list[dict] = field(default_factory=list)
     error: str = ""
 
     def to_dict(self) -> dict:
@@ -136,18 +137,7 @@ class Orchestrator:
                 self.emit("tester", f"Wrote {len(tests['files'])} test files")
 
                 # 5. Test / debug loop
-                report = await self._run_tests(ws)
-                while not report["success"] and result.fix_rounds < self.settings.max_fix_rounds:
-                    result.fix_rounds += 1
-                    self.emit("debugger", f"Fix round {result.fix_rounds}: {report['summary']}", level="working")
-                    fix = await self._call_agent(agents["debugger"], "debugger", "fix_failures",
-                                                 {"spec": spec, "workspace": root,
-                                                  "test_output": report["output"],
-                                                  "max_chars": self.settings.max_report_chars})
-                    self.emit("debugger", "Changed: " + (", ".join(fix["changed"]) or "nothing"))
-                    if not fix["changed"]:
-                        break
-                    report = await self._run_tests(ws)
+                report = await self._debug_loop(ws, agents["debugger"], spec, root, result)
                 result.test_report = report
                 result.success = report["success"]
 
@@ -174,6 +164,49 @@ class Orchestrator:
                   f"{self.usage.total_tokens} tokens.", level="success" if result.success else "warn")
         return result
 
+    async def _debug_loop(self, ws, debugger, spec: dict, root: str, result: RunResult) -> dict:
+        """Run the tests and let the Debugger fix failures, keeping only progress.
+
+        Before every Debugger round the workspace is snapshotted. If the round
+        makes the test results worse, the snapshot is restored; if it does not
+        make them better, the loop stops, because another round on the same
+        failures would most likely spend tokens for nothing. Each round is
+        recorded in `result.rounds` for the UI. Returns the report that matches
+        the code left in the workspace.
+        """
+        best = await self._run_tests(ws)
+        result.rounds.append(_round_row(0, best, "initial run"))
+        while not best["success"] and result.fix_rounds < self.settings.max_fix_rounds:
+            result.fix_rounds += 1
+            n = result.fix_rounds
+            self.emit("debugger", f"Fix round {n}: {best['summary']}", level="working")
+            await call_json(ws, "snapshot", {"name": "before_fix"})
+            fix = await self._call_agent(debugger, "debugger", "fix_failures",
+                                         {"spec": spec, "workspace": root,
+                                          "test_output": best["output"],
+                                          "max_chars": self.settings.max_report_chars})
+            self.emit("debugger", "Changed: " + (", ".join(fix["changed"]) or "nothing"))
+            if not fix["changed"]:
+                result.rounds.append(_round_row(n, best, "no changes, stopped"))
+                break
+            report = await self._run_tests(ws)
+            if _score(report) > _score(best):
+                best = report
+                result.rounds.append(_round_row(n, report, "improved, kept"))
+                continue
+            if _score(report) < _score(best):
+                await call_json(ws, "restore", {"name": "before_fix"})
+                result.rounds.append(_round_row(n, report, "worse, rolled back"))
+                self.emit("orchestrator", f"Fix round {n} made tests worse ({report['summary']}); "
+                          "restored the previous code", level="warn")
+            else:
+                result.rounds.append(_round_row(n, report, "no improvement, stopped"))
+                best = report
+                self.emit("orchestrator", f"Fix round {n} did not improve the tests; stopping early "
+                          "to save tokens", level="warn")
+            break
+        return best
+
     async def _run_tests(self, ws) -> dict:
         """Run pytest through the workspace MCP server and report the result."""
         self.emit("workspace", "Running pytest...", level="working")
@@ -195,6 +228,18 @@ class Orchestrator:
             "success": result.success, "model": self.settings.model, "provider": self.settings.provider,
             "fix_rounds": result.fix_rounds, "tests": result.test_report.get("summary", "")})
         shutil.make_archive(str(job_dir / "generated_project"), "zip", root_dir=result.project_dir)
+
+
+def _score(report: dict) -> tuple:
+    """Rank test reports: all passing first, then more passes, then fewer failures."""
+    return (bool(report.get("success")), report.get("passed", 0),
+            -(report.get("failed", 0) + report.get("errors", 0)))
+
+
+def _round_row(number: int, report: dict, outcome: str) -> dict:
+    """One row of the per-round test history shown in the UI."""
+    return {"round": number, "passed": report.get("passed", 0), "failed": report.get("failed", 0),
+            "errors": report.get("errors", 0), "summary": report.get("summary", ""), "outcome": outcome}
 
 
 def _first_leaf(exc: BaseException) -> BaseException:

@@ -60,6 +60,19 @@ def build_server(root: str) -> FastMCP:
         return ws.run_tests(timeout=timeout)
 
     @mcp.tool()
+    def snapshot(name: str = "default") -> dict:
+        """Save the current state of all files so it can be restored later.
+
+        Used by the orchestrator before each Debugger round; no agent has it
+        on its allow-list."""
+        return {"files": ws.snapshot(name)}
+
+    @mcp.tool()
+    def restore(name: str = "default") -> dict:
+        """Return the workspace to a saved snapshot (undo a bad Debugger round)."""
+        return {"changed": ws.restore(name)}
+
+    @mcp.tool()
     def add_headers(header: str) -> dict:
         """Prepend an author header comment to every Python file."""
         return {"changed": ws.add_headers(header)}

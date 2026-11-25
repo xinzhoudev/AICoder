@@ -54,7 +54,8 @@ Chosen software: **Customer Feedback Tracker** (`specs/customer_feedback_tracker
 | Debugger | `fix_failures(spec, workspace, test_output)` | `list_files`, `read_files`, `write_files`, `check_syntax` | corrected files |
 
 Workspace server tools: `write_files`, `read_files`, `list_files`, `check_syntax`,
-`extract_api`, `run_tests`, `add_headers`.
+`extract_api`, `run_tests`, `add_headers`, plus `snapshot` and `restore`, which only the
+orchestrator uses (no agent has them on its allow-list).
 
 **Collaboration pattern** (sequential pipeline with a feedback loop):
 
@@ -68,6 +69,12 @@ Analyst ─▶ Architect ─▶ Coder ─▶ Tester ─▶ run_tests ──pass�
 The orchestrator is deterministic code, not another LLM: the order of steps never changes for
 this task, so an LLM "manager" would only add API calls and tokens.
 
+**Debugger regression guard.** Before each Debugger round the orchestrator snapshots the
+workspace. If the round makes the tests worse, the snapshot is restored, so a bad fix never
+replaces better code. If a round does not improve the result, the loop stops early instead of
+spending more tokens on the same failures. Every round (passed / failed / errors / outcome) is
+shown in the UI's **Test run** tab and saved in `result.json`.
+
 **Generated code runs without secrets.** `run_tests` executes LLM-written code, so it starts
 pytest with an environment from which every variable whose name contains `KEY`, `TOKEN`,
 `SECRET`, `PASSWORD` or `CREDENTIAL` (e.g. `LLM_API_KEY`) has been removed.
@@ -77,7 +84,8 @@ pytest with an environment from which every variable whose name contains `KEY`, 
 The project is graded on token usage and API calls, so the design minimises both:
 
 1. **4 LLM calls in the best case** (Analyst, Architect, Coder, Tester); the Debugger only runs
-   when tests fail, and at most `MAX_FIX_ROUNDS` times (default 2).
+   when tests fail, at most `MAX_FIX_ROUNDS` times (default 2), and stops early when a round
+   brings no improvement.
 2. **The Tester never sees full source files.** The workspace's `extract_api` tool parses the
    code with Python's `ast` and sends only signatures and first docstring lines.
 3. **Compact JSON** (no whitespace) for spec and design in prompts; later agents get a trimmed
@@ -211,7 +219,7 @@ needs to see working in the demo.
 ## 7. Tests for AI Coder itself
 
 ```bash
-python -m pytest -q          # 23 tests, offline (mock LLM), about 15 s
+python -m pytest -q          # 29 tests, offline (mock LLM), about 15 s
 ```
 
 They cover output parsing, usage tracking, workspace tools, both LLM clients (with a faked
