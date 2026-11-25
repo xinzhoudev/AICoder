@@ -35,12 +35,14 @@ Chosen software: **Customer Feedback Tracker** (`specs/customer_feedback_tracker
 ```
 
 * Each agent runs in its **own process** (`python -m ai_coder.servers.agent_server --role <role>`)
-  and exposes its skill as an MCP tool.
+  and exposes its skill as an MCP tool. The agents themselves are in `ai_coder/agents/`, one
+  module per role on a shared `BaseAgent` (LLM calls, usage records, allow-listed workspace
+  access, uniform `ok`/`error` replies).
 * The **workspace server** (`ai_coder/servers/workspace_server.py`) is the shared
   "blackboard": agents exchange code by writing to and reading from it over MCP instead of
   passing whole files through prompts.
 * Agents that work on code are **MCP clients of the workspace server** with an
-  **allow-list** of tools (`ROLE_TOOLS` in `agent_server.py`; `WorkspaceClient` refuses
+  **allow-list** of tools (each agent class's `tools`, collected in `ROLE_TOOLS`; `WorkspaceClient` refuses
   anything else).
 
 ### Agents, tools and collaboration
@@ -89,7 +91,7 @@ The project is graded on token usage and API calls, so the design minimises both
 2. **The Tester never sees full source files.** The workspace's `extract_api` tool parses the
    code with Python's `ast` and sends only signatures and first docstring lines.
 3. **Compact JSON** (no whitespace) for spec and design in prompts; later agents get a trimmed
-   spec (`_spec_brief`).
+   spec (`spec_brief` in `agents/base.py`).
 4. **Truncated pytest output** for the Debugger (head + tail, `MAX_REPORT_CHARS`).
 5. **Targeted retries only**: the Coder re-asks just for files that were missing, and fixes only
    files that fail to compile.
@@ -220,12 +222,15 @@ needs to see working in the demo.
 ## 7. Tests for AI Coder itself
 
 ```bash
-python -m pytest -q          # 30 tests, offline (mock LLM), about 15 s
+python -m pytest -q          # 40 tests, offline (mock LLM), about 15 s
 ```
 
 They cover output parsing, usage tracking, workspace tools, both LLM clients (with a faked
 HTTP layer), each agent's MCP tool listing, tool allow-list enforcement, the Debugger repairing
 a deliberately broken file over real MCP stdio, the full pipeline, and the UI endpoints.
+`tests/test_agents.py` tests each of the five agents in-process with a scripted LLM (JSON
+retry and fallback, follow-up for missing files, syntax repair, API-only prompts for the
+Tester, file selection for the Debugger). The suite passes on Python 3.10 and 3.12.
 
 ## 8. Project structure
 
@@ -239,7 +244,8 @@ ai_coder/
   workspace.py         file, syntax, API-extraction and pytest logic
   mcp_client.py        MCP stdio session helpers, WorkspaceClient (allow-list)
   orchestrator.py      pipeline (MCP client)
-  servers/agent_server.py      one MCP server per agent role
+  agents/              BaseAgent + analyst, architect, coder, tester, debugger (one module each)
+  servers/agent_server.py      MCP server entry point, one process per agent role
   servers/workspace_server.py  workspace MCP server
   ui/app.py, ui/templates/index.html   web UI
   mock_data/           reference Customer Feedback Tracker used by the mock LLM
@@ -254,5 +260,9 @@ output/<job_id>/       generated project, ZIP, spec, design, usage report, test 
 
 * Libraries: the official MCP Python SDK (`mcp`, FastMCP API), Flask, httpx, pytest.
   No code was copied from other open-source projects.
-* `<State here, as your course policy requires, whether AI tools were used to write parts of
-  this repository and which parts.>`
+* AI assistance: Yuxiao Xiao's commits were written with the help of Claude Code
+  (Anthropic): the five agents in `ai_coder/agents/` and `servers/agent_server.py`, their
+  tests in `tests/test_agents.py`, and the other commits by Yuxiao (each carries a
+  `Co-Authored-By: Claude` line). Files written this way say so in their header.
+* `<Xin Zhou: state here, as the course policy requires, whether AI tools were used for the
+  rest of the code and which parts.>`
