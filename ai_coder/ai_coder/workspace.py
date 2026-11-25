@@ -1,4 +1,5 @@
 # Author: <YOUR NAME> (Student ID: <YOUR STUDENT ID>)
+# Contributor: Yuxiao Xiao (Student ID: 62185048)
 # SWE 270P Final Project - AI Coder: workspace operations (files, syntax, API, tests).
 """Operations on a generated project's folder.
 

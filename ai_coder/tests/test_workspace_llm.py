@@ -1,4 +1,5 @@
 # Author: <YOUR NAME> (Student ID: <YOUR STUDENT ID>)
+# Contributor: Yuxiao Xiao (Student ID: 62185048)
 # SWE 270P Final Project - AI Coder: tests for workspace tools and LLM clients.
 """Unit tests for `ai_coder.workspace` and `ai_coder.llm_client`."""
 

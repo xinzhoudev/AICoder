@@ -1,4 +1,5 @@
 # Author: <YOUR NAME> (Student ID: <YOUR STUDENT ID>)
+# Contributor: Yuxiao Xiao (Student ID: 62185048)
 # SWE 270P Final Project - AI Coder: integration tests over real MCP stdio servers.
 """Integration tests: start the real MCP servers (with the mock LLM) and
 exercise tool listing, tool permissions, the debugger loop and the whole
