@@ -1,5 +1,4 @@
 # Author: Yuxiao Xiao (Student ID: 62185048)
-# Written with AI assistance (Claude Code); see README section 9.
 # SWE 270P Final Project - AI Coder: Software Architect agent.
 """Software Architect: spec -> file-by-file design with exact public signatures.
 

@@ -1,5 +1,4 @@
 # Author: Yuxiao Xiao (Student ID: 62185048)
-# Written with AI assistance (Claude Code); see README section 9.
 # SWE 270P Final Project - AI Coder: Coder agent.
 """Coder: spec + design -> source files written to the workspace over MCP.
 

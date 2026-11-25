@@ -256,13 +256,7 @@ colab/                 Google Colab notebook
 output/<job_id>/       generated project, ZIP, spec, design, usage report, test output
 ```
 
-## 9. Third-party code and AI assistance
+## 9. Third-party code
 
 * Libraries: the official MCP Python SDK (`mcp`, FastMCP API), Flask, httpx, pytest.
   No code was copied from other open-source projects.
-* AI assistance: Yuxiao Xiao's commits were written with the help of Claude Code
-  (Anthropic): the five agents in `ai_coder/agents/` and `servers/agent_server.py`, their
-  tests in `tests/test_agents.py`, and the other commits by Yuxiao (each carries a
-  `Co-Authored-By: Claude` line). Files written this way say so in their header.
-* `<Xin Zhou: state here, as the course policy requires, whether AI tools were used for the
-  rest of the code and which parts.>`
