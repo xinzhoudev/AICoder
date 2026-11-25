@@ -90,3 +90,16 @@ def test_web_ui_endpoints():
     assert "Customer Feedback Tracker" in cfg["example"]["description"]
     assert client.post("/api/generate", json={"description": ""}).status_code == 400
     assert client.get("/api/jobs/does-not-exist").status_code == 404
+
+
+def test_first_leaf_unwraps_nested_exception_groups():
+    from ai_coder.orchestrator import _first_leaf
+
+    try:
+        group = BaseExceptionGroup
+    except NameError:  # Python 3.10
+        from exceptiongroup import BaseExceptionGroup as group
+    inner = ConnectionRefusedError("refused")
+    nested = group("outer", [group("inner", [inner])])
+    assert _first_leaf(nested) is inner
+    assert _first_leaf(inner) is inner

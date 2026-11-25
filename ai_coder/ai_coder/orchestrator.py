@@ -28,6 +28,11 @@ from .config import LOG_DIR, OUTPUT_DIR, Settings, get_settings
 from .mcp_client import ToolCallError, call_json, open_session
 from .usage import UsageTracker
 
+try:  # built in from Python 3.11; anyio installs the backport on 3.10
+    BaseExceptionGroup
+except NameError:  # pragma: no cover - only on Python 3.10
+    from exceptiongroup import BaseExceptionGroup
+
 AGENT_MODULE = "ai_coder.servers.agent_server"
 WORKSPACE_MODULE = "ai_coder.servers.workspace_server"
 ROLES = ("analyst", "architect", "coder", "tester", "debugger")
