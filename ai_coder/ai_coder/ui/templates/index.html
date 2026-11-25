@@ -123,6 +123,7 @@
       <div class="pane" data-p="code"><div class="files"><div class="filelist" id="srcfiles"></div><pre class="code" id="srcview"></pre></div></div>
       <div class="pane hidden" data-p="tests"><div class="files"><div class="filelist" id="testfiles"></div><pre class="code" id="testview"></pre></div></div>
       <div class="pane hidden" data-p="run">
+        <table id="rounds" style="margin-bottom:12px"><thead><tr><th>Round</th><th>Passed</th><th>Failed</th><th>Errors</th><th>Outcome</th></tr></thead><tbody></tbody></table>
         <div class="row" style="margin-top:0;margin-bottom:10px"><button id="rerun">Run tests again</button><span class="muted" id="runsummary"></span></div>
         <pre class="code" id="runview"></pre>
       </div>
@@ -215,12 +216,26 @@ function showResult(j) {
   const tests = r.files.filter(f => f.startsWith("tests/")), src = r.files.filter(f => !f.startsWith("tests/"));
   fileList("srcfiles", "srcview", src); fileList("testfiles", "testview", tests);
   $("runview").textContent = t.output || ""; $("runsummary").textContent = t.summary || "";
+  showRounds(r.rounds || []);
   const by = r.usage.by_agent;
   $("usage").querySelector("tbody").innerHTML = Object.keys(by).map(a =>
     `<tr><td>${a}</td><td>${by[a].calls}</td><td>${by[a].prompt_tokens.toLocaleString()}</td><td>${by[a].completion_tokens.toLocaleString()}</td><td>${by[a].total_tokens.toLocaleString()}</td><td>${by[a].latency_s}</td></tr>`).join("") +
     `<tr><td><b>Total</b></td><td><b>${r.usage.total_api_calls}</b></td><td>${r.usage.total_prompt_tokens.toLocaleString()}</td><td>${r.usage.total_completion_tokens.toLocaleString()}</td><td><b>${r.usage.total_tokens.toLocaleString()}</b></td><td></td></tr>`;
   $("usagenote").textContent = r.usage.any_estimated ? "Some token counts are estimates (the model server did not report usage)." : "Token counts as reported by the model server.";
   $("specview").textContent = "SPEC (Analyst)\n" + JSON.stringify(r.spec, null, 2) + "\n\nDESIGN (Architect)\n" + JSON.stringify(r.design, null, 2);
+}
+
+// Per-round test results of the Debugger loop (kept, rolled back or stopped early).
+function showRounds(rounds) {
+  const body = $("rounds").querySelector("tbody"); body.innerHTML = "";
+  rounds.forEach(rd => {
+    const tr = document.createElement("tr");
+    [rd.round === 0 ? "initial" : `fix ${rd.round}`, rd.passed, rd.failed, rd.errors, rd.outcome].forEach(v => {
+      const td = document.createElement("td"); td.textContent = v; tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+  $("rounds").classList.toggle("hidden", !rounds.length);
 }
 
 // Build a clickable file list and open the first file.
