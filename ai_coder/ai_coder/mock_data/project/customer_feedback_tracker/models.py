@@ -1,4 +1,4 @@
-# Author: <YOUR NAME> (Student ID: <YOUR STUDENT ID>)
+# Author: Xin Zhou (Student ID: 42742822)
 # Reference implementation used as canned output by the offline mock LLM.
 """Domain models and validation for the Customer Feedback Tracker."""
 

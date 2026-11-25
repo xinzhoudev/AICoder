@@ -1,4 +1,4 @@
-# Author: <YOUR NAME> (Student ID: <YOUR STUDENT ID>)
+# Author: Xin Zhou (Student ID: 42742822)
 # SWE 270P Final Project - AI Coder: configuration loaded from environment variables.
 """Central configuration.
 
@@ -74,8 +74,8 @@ class Settings:
     max_report_chars: int = field(default_factory=lambda: _int("MAX_REPORT_CHARS", 3500))
 
     # Header stamped on every generated Python file (course requirement).
-    author_name: str = field(default_factory=lambda: os.environ.get("AUTHOR_NAME", "<YOUR NAME>"))
-    student_id: str = field(default_factory=lambda: os.environ.get("STUDENT_ID", "<YOUR STUDENT ID>"))
+    author_name: str = field(default_factory=lambda: os.environ.get("AUTHOR_NAME", "Xin Zhou & Yuxiao Xiao"))
+    student_id: str = field(default_factory=lambda: os.environ.get("STUDENT_ID", "42742822 & 62185048"))
 
     def resolved_base_url(self) -> str:
         """Return the base URL, choosing a sensible default per provider."""

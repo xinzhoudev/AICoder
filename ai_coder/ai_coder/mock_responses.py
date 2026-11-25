@@ -1,4 +1,4 @@
-# Author: <YOUR NAME> (Student ID: <YOUR STUDENT ID>)
+# Author: Xin Zhou (Student ID: 42742822)
 # SWE 270P Final Project - AI Coder: canned replies for the offline mock LLM.
 """Canned replies used by `MockClient` (LLM_PROVIDER=mock).
 

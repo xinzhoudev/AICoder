@@ -1,6 +1,6 @@
 # AI Coder: a multi-agent code generator over MCP
 
-SWE 270P Final Project. Team: `<names and student IDs>`
+SWE 270P Final Project. Team: Xin Zhou (Student ID: 42742822), Yuxiao Xiao (Student ID: 62185048).
 
 AI Coder takes a **software description plus requirements** from a web UI and returns a
 **runnable Python application and its pytest test cases**. Five LLM agents, each an

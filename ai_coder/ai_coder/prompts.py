@@ -1,4 +1,4 @@
-# Author: <YOUR NAME> (Student ID: <YOUR STUDENT ID>)
+# Author: Xin Zhou (Student ID: 42742822)
 # SWE 270P Final Project - AI Coder: system prompts for each agent role.
 """Prompts for the five LLM agents.
 

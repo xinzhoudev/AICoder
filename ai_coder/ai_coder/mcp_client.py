@@ -1,4 +1,4 @@
-# Author: <YOUR NAME> (Student ID: <YOUR STUDENT ID>)
+# Author: Xin Zhou (Student ID: 42742822)
 # SWE 270P Final Project - AI Coder: shared MCP client helpers.
 """Helpers for opening MCP stdio sessions and calling tools.
 
