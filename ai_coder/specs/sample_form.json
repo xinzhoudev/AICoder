@@ -1,0 +1,11 @@
+{
+  "title": "Post-purchase survey",
+  "description": "Help us improve our store. It takes one minute.",
+  "questions": [
+    {"text": "How satisfied are you with the product?", "type": "rating"},
+    {"text": "How satisfied are you with delivery?", "type": "rating"},
+    {"text": "How likely are you to recommend us to a friend?", "type": "nps"},
+    {"text": "How did you hear about us?", "type": "choice", "options": ["Friend", "Search", "Social media", "Ad"], "required": false},
+    {"text": "Anything else you'd like to tell us?", "type": "text", "required": false}
+  ]
+}

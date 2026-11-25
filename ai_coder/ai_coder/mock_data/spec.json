@@ -1,0 +1,22 @@
+{
+  "app_name": "customer_feedback_tracker",
+  "summary": "CLI app to create feedback forms, distribute them by email/social media, collect responses and analyse them with charts and insights.",
+  "features": [
+    {"id": "F1", "name": "Form management", "details": "Create, list, view, update and delete forms with ordered questions", "acceptance": ["empty title raises ValueError", "update changes title/active", "deleted form raises KeyError"]},
+    {"id": "F2", "name": "Question types", "details": "rating 1-5, nps 0-10, text, choice", "acceptance": ["unknown type raises ValueError", "choice needs >= 2 options"]},
+    {"id": "F3", "name": "Response collection", "details": "Validate and store responses with channel and timestamp", "acceptance": ["out-of-range rating/NPS rejected", "missing required answer rejected", "inactive/unknown form rejected", "invalid channel/email rejected"]},
+    {"id": "F4", "name": "Email distribution", "details": "Invitation emails saved to an outbox; optional SMTP", "acceptance": ["one email per address with link tagged channel=email", "invalid address raises ValueError", "SMTP sender injectable"]},
+    {"id": "F5", "name": "Social sharing", "details": "Twitter, Facebook, LinkedIn share links", "acceptance": ["three links, each tagged with its channel"]},
+    {"id": "F6", "name": "Persistence", "details": "SQLite storage, CSV import/export", "acceptance": ["CSV export then import keeps responses", "file database persists"]},
+    {"id": "F7", "name": "Analytics", "details": "Averages, distribution, NPS, channels, sentiment, keywords", "acceptance": ["NPS = %promoters - %detractors", "sentiment percentages", "stop words removed from keywords"]},
+    {"id": "F8", "name": "Trends", "details": "Count and average rating per day/week/month", "acceptance": ["groups by month", "invalid period raises ValueError"]},
+    {"id": "F9", "name": "Insights", "details": "Plain-English actionable insights", "acceptance": ["flags low ratings, negative NPS, declining trend, complaint keywords"]},
+    {"id": "F10", "name": "Visualization and CLI", "details": "SVG bar/line charts, text charts, argparse CLI with friendly errors", "acceptance": ["SVG files written", "CLI returns 1 with 'Error:' message on bad id"]}
+  ],
+  "data_entities": [
+    {"name": "FeedbackForm", "fields": ["id", "title", "description", "questions", "active", "created_at"]},
+    {"name": "Question", "fields": ["id", "text", "qtype", "options", "required"]},
+    {"name": "Response", "fields": ["id", "form_id", "answers", "channel", "respondent_email", "submitted_at"]}
+  ],
+  "constraints": ["Python 3.10+ standard library only", "tests offline and deterministic"]
+}

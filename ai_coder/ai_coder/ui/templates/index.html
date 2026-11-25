@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<!-- Author: <YOUR NAME> (Student ID: <YOUR STUDENT ID>) -->
+<!-- SWE 270P Final Project - AI Coder: single-page web UI. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Coder · Multi-Agent MCP Code Generator</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a64; --line: #e3e1da;
+    --accent: #2453c7; --accent-soft: #e8eefc; --ok: #1f7a4d; --ok-soft: #e3f3ea;
+    --warn: #a15c00; --warn-soft: #fbf0dc; --err: #b42318; --err-soft: #fde8e6;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
+  header { padding: 18px 28px; border-bottom: 1px solid var(--line); background: var(--panel); display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 19px; letter-spacing: -.01em; }
+  header .sub { color: var(--muted); }
+  header .model { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  main { display: grid; grid-template-columns: minmax(340px, 440px) 1fr; gap: 20px; padding: 20px 28px; }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+  .panel + .panel { margin-top: 16px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+  label { display: block; font-weight: 600; margin: 12px 0 6px; }
+  textarea { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 10px; font: 13px/1.45 system-ui, sans-serif; resize: vertical; background: #fcfcfa; }
+  textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  #description { height: 130px; } #requirements { height: 300px; font-family: var(--mono); font-size: 12px; }
+  .row { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  button { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer; }
+  button:hover { border-color: var(--muted); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+  button.primary:disabled { opacity: .55; cursor: wait; }
+  .stages { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .stage { border: 1px solid var(--line); border-radius: 8px; padding: 8px; text-align: center; font-size: 12px; color: var(--muted); }
+  .stage b { display: block; color: var(--ink); font-size: 13px; }
+  .stage.working { border-color: var(--accent); background: var(--accent-soft); }
+  .stage.done { border-color: var(--ok); background: var(--ok-soft); }
+  .stage.warn { border-color: var(--warn); background: var(--warn-soft); }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
+  .stat { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .stat .v { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .stat .k { color: var(--muted); font-size: 12px; }
+  #log { font-family: var(--mono); font-size: 12px; height: 210px; overflow: auto; background: #fbfbf8; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-top: 14px; white-space: pre-wrap; }
+  .ev-error { color: var(--err); } .ev-success { color: var(--ok); } .ev-warn { color: var(--warn); } .ev-working { color: var(--accent); }
+  .banner { padding: 10px 12px; border-radius: 8px; margin-top: 14px; display: none; font-weight: 600; }
+  .banner.ok { display: block; background: var(--ok-soft); color: var(--ok); }
+  .banner.warn { display: block; background: var(--warn-soft); color: var(--warn); }
+  .banner.err { display: block; background: var(--err-soft); color: var(--err); }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 12px; flex-wrap: wrap; }
+  .tab { border: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 12px; background: none; color: var(--muted); }
+  .tab.active { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+  .files { display: grid; grid-template-columns: 240px 1fr; gap: 12px; min-height: 380px; }
+  .filelist { border-right: 1px solid var(--line); padding-right: 8px; overflow: auto; max-height: 560px; }
+  .filelist div { font-family: var(--mono); font-size: 12px; padding: 5px 8px; border-radius: 6px; cursor: pointer; word-break: break-all; }
+  .filelist div:hover { background: var(--bg); } .filelist div.sel { background: var(--accent-soft); color: var(--accent); }
+  pre.code { margin: 0; font-family: var(--mono); font-size: 12px; line-height: 1.5; background: #fbfbf8; border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow: auto; max-height: 560px; white-space: pre; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; } th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  .muted { color: var(--muted); } .hidden { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>AI Coder</h1>
+  <span class="sub">Multi-agent code generator over the Model Context Protocol</span>
+  <span class="model" id="model">loading…</span>
+</header>
+
+<main>
+  <section>
+    <div class="panel">
+      <h2>1 · Software to build</h2>
+      <label for="description">Description</label>
+      <textarea id="description" placeholder="What should the application do?"></textarea>
+      <label for="requirements">Requirements</label>
+      <textarea id="requirements" placeholder="FR1 …&#10;FR2 …"></textarea>
+      <div class="row">
+        <button class="primary" id="go">Generate code and tests</button>
+        <button id="example">Load Customer Feedback Tracker</button>
+        <button id="clear">Clear</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Usage history</h2>
+      <table id="history"><thead><tr><th>Run</th><th>Calls</th><th>Tokens</th><th>Tests</th></tr></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+  <section>
+    <div class="panel">
+      <h2>2 · Agents at work</h2>
+      <div class="stages" id="stages">
+        <div class="stage" data-s="analyst"><b>Analyst</b>spec</div>
+        <div class="stage" data-s="architect"><b>Architect</b>design</div>
+        <div class="stage" data-s="coder"><b>Coder</b>source</div>
+        <div class="stage" data-s="tester"><b>Tester</b>tests</div>
+        <div class="stage" data-s="workspace"><b>Workspace</b>pytest</div>
+        <div class="stage" data-s="debugger"><b>Debugger</b>fixes</div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="v" id="calls">0</div><div class="k">LLM API calls</div></div>
+        <div class="stat"><div class="v" id="tokens">0</div><div class="k">total tokens</div></div>
+        <div class="stat"><div class="v" id="tests">–</div><div class="k">tests passed</div></div>
+        <div class="stat"><div class="v" id="elapsed">0s</div><div class="k">elapsed</div></div>
+      </div>
+      <div id="banner" class="banner"></div>
+      <div id="log"><span class="muted">Progress from every agent appears here.</span></div>
+    </div>
+
+    <div class="panel hidden" id="results">
+      <h2>3 · Output</h2>
+      <div class="tabs">
+        <button class="tab active" data-t="code">Source code</button>
+        <button class="tab" data-t="tests">Test cases</button>
+        <button class="tab" data-t="run">Test run</button>
+        <button class="tab" data-t="usage">LLM usage</button>
+        <button class="tab" data-t="spec">Spec &amp; design</button>
+      </div>
+      <div class="pane" data-p="code"><div class="files"><div class="filelist" id="srcfiles"></div><pre class="code" id="srcview"></pre></div></div>
+      <div class="pane hidden" data-p="tests"><div class="files"><div class="filelist" id="testfiles"></div><pre class="code" id="testview"></pre></div></div>
+      <div class="pane hidden" data-p="run">
+        <div class="row" style="margin-top:0;margin-bottom:10px"><button id="rerun">Run tests again</button><span class="muted" id="runsummary"></span></div>
+        <pre class="code" id="runview"></pre>
+      </div>
+      <div class="pane hidden" data-p="usage">
+        <table id="usage"><thead><tr><th>Agent</th><th>Calls</th><th>Prompt tokens</th><th>Completion tokens</th><th>Total</th><th>Time (s)</th></tr></thead><tbody></tbody></table>
+        <p class="muted" id="usagenote"></p>
+      </div>
+      <div class="pane hidden" data-p="spec"><pre class="code" id="specview"></pre></div>
+      <div class="row"><button class="primary" id="download">Download project (.zip)</button></div>
+    </div>
+  </section>
+</main>
+
+<script>
+// Small helper: fetch JSON or throw with the server's message.
+async function api(url, opts) {
+  const r = await fetch(url, opts);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+const $ = (id) => document.getElementById(id);
+let example = null, jobId = null, seen = 0, timer = null;
+
+// Load model settings, the example spec and the usage history.
+async function init() {
+  const cfg = await api("/api/config");
+  example = cfg.example;
+  const s = cfg.settings;
+  $("model").textContent = `${s.provider} · ${s.model} · max ${s.max_fix_rounds} fix rounds`;
+  if (!$("description").value) { $("description").value = example.description; $("requirements").value = example.requirements; }
+  loadHistory();
+}
+
+// Render the previous runs table.
+async function loadHistory() {
+  const rows = await api("/api/history");
+  $("history").querySelector("tbody").innerHTML = rows.map(r =>
+    `<tr><td>${r.job_id.slice(4, 15)}</td><td>${r.api_calls}</td><td>${r.total_tokens.toLocaleString()}</td><td>${(r.tests || "").split(" in ")[0]}</td></tr>`
+  ).join("") || `<tr><td colspan="4" class="muted">No runs yet</td></tr>`;
+}
+
+// Start a job and begin polling it.
+async function start() {
+  $("go").disabled = true; $("results").classList.add("hidden");
+  $("log").innerHTML = ""; $("banner").className = "banner"; seen = 0;
+  document.querySelectorAll(".stage").forEach(s => s.className = "stage");
+  ["calls", "tokens"].forEach(id => $(id).textContent = "0"); $("tests").textContent = "–";
+  try {
+    const r = await api("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ description: $("description").value, requirements: $("requirements").value }) });
+    jobId = r.job_id; timer = setInterval(poll, 1000); poll();
+  } catch (e) { showBanner("err", e.message); $("go").disabled = false; }
+}
+
+// Fetch new events and, when finished, the result.
+async function poll() {
+  const j = await api(`/api/jobs/${jobId}?since=${seen}`);
+  seen = j.event_count;
+  j.events.forEach(addEvent);
+  $("calls").textContent = j.live_usage.api_calls; $("tokens").textContent = j.live_usage.tokens.toLocaleString();
+  $("elapsed").textContent = Math.round(j.elapsed_s) + "s";
+  if (j.status !== "running") { clearInterval(timer); $("go").disabled = false; showResult(j); loadHistory(); }
+}
+
+// Append one event to the log and update the stage tracker.
+function addEvent(ev) {
+  const line = document.createElement("div");
+  line.className = "ev-" + ev.level;
+  line.textContent = `${ev.time}  ${ev.agent.padEnd(12)} ${ev.message}`;
+  $("log").appendChild(line); $("log").scrollTop = 1e9;
+  const st = document.querySelector(`.stage[data-s="${ev.agent}"]`);
+  if (st) st.className = "stage " + ({ working: "working", done: "done", success: "done", warn: "warn", error: "warn" }[ev.level] || st.className.split(" ")[1] || "");
+}
+
+function showBanner(kind, text) { $("banner").className = "banner " + kind; $("banner").textContent = text; }
+
+// Fill the output tabs from the job result.
+function showResult(j) {
+  const r = j.result;
+  if (!r) { showBanner("err", "The run stopped unexpectedly; see the log."); return; }
+  const t = r.test_report || {};
+  $("tests").textContent = t.passed !== undefined ? `${t.passed}/${(t.passed || 0) + (t.failed || 0) + (t.errors || 0)}` : "–";
+  $("calls").textContent = r.usage.total_api_calls; $("tokens").textContent = r.usage.total_tokens.toLocaleString();
+  if (r.error) showBanner("err", r.error);
+  else if (r.success) showBanner("ok", `All tests pass (${t.summary}). ${r.usage.total_api_calls} API calls, ${r.usage.total_tokens.toLocaleString()} tokens.`);
+  else showBanner("warn", `Code generated, but tests still fail after ${r.fix_rounds} fix round(s): ${t.summary}`);
+  if (!r.files || !r.files.length) return;
+  $("results").classList.remove("hidden");
+  const tests = r.files.filter(f => f.startsWith("tests/")), src = r.files.filter(f => !f.startsWith("tests/"));
+  fileList("srcfiles", "srcview", src); fileList("testfiles", "testview", tests);
+  $("runview").textContent = t.output || ""; $("runsummary").textContent = t.summary || "";
+  const by = r.usage.by_agent;
+  $("usage").querySelector("tbody").innerHTML = Object.keys(by).map(a =>
+    `<tr><td>${a}</td><td>${by[a].calls}</td><td>${by[a].prompt_tokens.toLocaleString()}</td><td>${by[a].completion_tokens.toLocaleString()}</td><td>${by[a].total_tokens.toLocaleString()}</td><td>${by[a].latency_s}</td></tr>`).join("") +
+    `<tr><td><b>Total</b></td><td><b>${r.usage.total_api_calls}</b></td><td>${r.usage.total_prompt_tokens.toLocaleString()}</td><td>${r.usage.total_completion_tokens.toLocaleString()}</td><td><b>${r.usage.total_tokens.toLocaleString()}</b></td><td></td></tr>`;
+  $("usagenote").textContent = r.usage.any_estimated ? "Some token counts are estimates (the model server did not report usage)." : "Token counts as reported by the model server.";
+  $("specview").textContent = "SPEC (Analyst)\n" + JSON.stringify(r.spec, null, 2) + "\n\nDESIGN (Architect)\n" + JSON.stringify(r.design, null, 2);
+}
+
+// Build a clickable file list and open the first file.
+function fileList(listId, viewId, files) {
+  const list = $(listId); list.innerHTML = "";
+  files.forEach((f) => {
+    const d = document.createElement("div"); d.textContent = f;
+    d.onclick = async () => {
+      list.querySelectorAll("div").forEach(x => x.classList.remove("sel")); d.classList.add("sel");
+      $(viewId).textContent = (await api(`/api/jobs/${jobId}/file?path=${encodeURIComponent(f)}`)).content;
+    };
+    list.appendChild(d);
+  });
+  const items = [...list.children];
+  const first = items.find(d => /models\.py$|\/test_/.test(d.textContent)) || items[0];
+  if (first) first.click();
+}
+
+document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x === b));
+  document.querySelectorAll(".pane").forEach(p => p.classList.toggle("hidden", p.dataset.p !== b.dataset.t));
+});
+$("go").onclick = start;
+$("example").onclick = () => { $("description").value = example.description; $("requirements").value = example.requirements; };
+$("clear").onclick = () => { $("description").value = ""; $("requirements").value = ""; };
+$("download").onclick = () => { window.location = `/api/jobs/${jobId}/download`; };
+$("rerun").onclick = async () => {
+  $("runsummary").textContent = "running…";
+  const t = await api(`/api/jobs/${jobId}/run-tests`, { method: "POST" });
+  $("runview").textContent = t.output; $("runsummary").textContent = t.summary;
+};
+init();
+</script>
+</body>
+</html>
