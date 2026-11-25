@@ -30,6 +30,7 @@ def resp(rating, nps, text="", when=datetime(2026, 1, 1), channel="web"):
 
 
 def test_form_link_and_social_links(form):
+    """Form links and social share links are built correctly (FR5)."""
     assert distribution.form_link("https://x.io/", 7, "email") == "https://x.io/forms/7?channel=email"
     links = distribution.social_share_links(form, "https://x.io")
     assert set(links) == {"twitter", "facebook", "linkedin"}
@@ -37,6 +38,7 @@ def test_form_link_and_social_links(form):
 
 
 def test_invitations_saved_to_outbox(form, tmp_path):
+    """Email invitations are saved to the outbox folder (FR4)."""
     msgs = distribution.build_invitations(form, ["ann@x.com", "bob@y.org"], "https://x.io")
     assert len(msgs) == 2 and "channel=email" in msgs[0].get_content()
     paths = distribution.save_to_outbox(msgs, tmp_path / "outbox")
@@ -44,14 +46,17 @@ def test_invitations_saved_to_outbox(form, tmp_path):
 
 
 def test_invalid_invitation_email_rejected(form):
+    """Invitations to invalid email addresses are rejected (FR4)."""
     with pytest.raises(ValueError):
         distribution.build_invitations(form, ["bad-address"], "https://x.io")
 
 
 def test_smtp_sender_is_injectable(form):
+    """Invitations can be sent through an injected SMTP class (FR4)."""
     sent = []
 
     class FakeSMTP:
+        """Stand-in for smtplib.SMTP that records sent messages."""
         def __init__(self, host, port): pass
         def __enter__(self): return self
         def __exit__(self, *a): return False
@@ -64,6 +69,7 @@ def test_smtp_sender_is_injectable(form):
 
 
 def test_rating_summary_and_nps(form):
+    """Rating averages, distributions and NPS are computed (FR7)."""
     rs = [resp(5, 10), resp(4, 9), resp(1, 2)]
     summary = analytics.rating_summary(form, rs)[1]
     assert summary["count"] == 3
@@ -74,6 +80,7 @@ def test_rating_summary_and_nps(form):
 
 
 def test_sentiment_and_keywords(form):
+    """Comments are scored for sentiment and keywords are counted (FR7)."""
     assert analytics.classify_sentiment("Great service, love it") == "positive"
     assert analytics.classify_sentiment("Delivery was slow and the box was broken") == "negative"
     assert analytics.classify_sentiment("It arrived on Tuesday") == "neutral"
@@ -85,6 +92,7 @@ def test_sentiment_and_keywords(form):
 
 
 def test_trend_by_month_and_invalid_period(form):
+    """Trends group by month, and an unknown period is rejected (FR8)."""
     rs = [resp(5, 9, when=datetime(2026, 1, 3)), resp(3, 9, when=datetime(2026, 1, 20)),
           resp(2, 5, when=datetime(2026, 2, 2))]
     rows = analytics.trend(form, rs, "month")
@@ -95,6 +103,7 @@ def test_trend_by_month_and_invalid_period(form):
 
 
 def test_insights_flag_problems(form):
+    """Insights point out low ratings, a negative NPS and a declining trend (FR9)."""
     rs = [resp(4, 3, "slow and broken", datetime(2026, 1, 1), "email"),
           resp(2, 2, "terrible slow support", datetime(2026, 3, 1), "email"),
           resp(1, 1, "", datetime(2026, 3, 2))]
@@ -106,10 +115,12 @@ def test_insights_flag_problems(form):
 
 
 def test_insights_without_responses(form):
+    """Insights explain what to do when there are no responses (FR9)."""
     assert len(analytics.generate_insights(form, [])) == 1
 
 
 def test_svg_charts(tmp_path):
+    """Bar and line charts are valid SVG documents (FR10)."""
     bar = visualization.bar_chart_svg({"1": 2, "5": 7}, "Ratings <&>")
     assert bar.startswith("<svg") and bar.count("<rect") == 3 and "&lt;&amp;&gt;" in bar
     line = visualization.line_chart_svg([("Jan", 4.0), ("Feb", 3.0)], "Trend")
@@ -121,6 +132,7 @@ def test_svg_charts(tmp_path):
 
 
 def test_cli_end_to_end(tmp_path, capsys):
+    """The CLI creates, fills, shares and reports on a form end to end (FR11)."""
     db = str(tmp_path / "cli.db")
     form_file = tmp_path / "form.json"
     form_file.write_text(json.dumps({"title": "CLI", "questions": [
@@ -136,6 +148,7 @@ def test_cli_end_to_end(tmp_path, capsys):
 
 
 def test_cli_friendly_error(tmp_path, capsys):
+    """The CLI prints a friendly error instead of a traceback (FR11)."""
     assert main(["--db", str(tmp_path / "e.db"), "show-form", "42"]) == 1
     err = capsys.readouterr().err
     assert err.startswith("Error:") and "Traceback" not in err

@@ -12,6 +12,7 @@ from ai_coder.workspace import Workspace, parse_pytest_counts, safe_test_env
 
 
 def test_write_read_list_and_path_escape(tmp_path):
+    """Workspace files can be written, read and listed, but not outside the root."""
     ws = Workspace(tmp_path)
     ws.write_files({"pkg/a.py": "A = 1\n", "README.md": "hi"})
     assert ws.list_files() == ["README.md", "pkg/a.py"]
@@ -21,6 +22,7 @@ def test_write_read_list_and_path_escape(tmp_path):
 
 
 def test_check_syntax_reports_errors(tmp_path):
+    """Syntax errors are reported per file."""
     ws = Workspace(tmp_path)
     ws.write_files({"good.py": "x = 1\n", "bad.py": "def f(:\n"})
     errors = ws.check_syntax()
@@ -28,6 +30,7 @@ def test_check_syntax_reports_errors(tmp_path):
 
 
 def test_extract_api_lists_public_signatures(tmp_path):
+    """The API summary lists public signatures and hides private names."""
     ws = Workspace(tmp_path)
     ws.write_files({"pkg/m.py": (
         '"""Mod."""\nLIMIT = 5\n\nclass Store:\n    """A store."""\n    def __init__(self, path: str = ":memory:"):\n'
@@ -42,11 +45,13 @@ def test_extract_api_lists_public_signatures(tmp_path):
 
 
 def test_run_tests_on_reference_project(reference_project):
+    """pytest runs in the workspace and its counts are parsed."""
     report = Workspace(reference_project).run_tests(timeout=120)
     assert report["success"] and report["failed"] == 0 and report["passed"] >= 20
 
 
 def test_add_headers_is_idempotent(tmp_path):
+    """Author headers are added once and never twice."""
     ws = Workspace(tmp_path)
     ws.write_files({"a.py": "x = 1\n"})
     header = "# Author: Me (Student ID: 1)\n"
@@ -56,19 +61,23 @@ def test_add_headers_is_idempotent(tmp_path):
 
 
 def test_parse_pytest_counts():
+    """Passed, failed and error counts are read from pytest's summary."""
     counts = parse_pytest_counts("....F\n=== 1 failed, 4 passed, 2 errors in 0.3s ===")
     assert (counts["passed"], counts["failed"], counts["errors"]) == (4, 1, 2)
     assert parse_pytest_counts("collection error")["passed"] == 0
 
 
 def test_make_client_picks_provider():
+    """The client factory returns the class for each provider."""
     assert isinstance(make_client(Settings(provider="mock")), MockClient)
     assert isinstance(make_client(Settings(provider="openai")), OpenAICompatClient)
     assert isinstance(make_client(Settings(provider="ollama")), OllamaClient)
 
 
 def test_ollama_client_reads_token_counts(monkeypatch):
+    """The Ollama client reads token counts from the server reply."""
     def fake_post(url, json, timeout, **kw):
+        """Stand-in for httpx.post that returns a canned response."""
         assert url.endswith("/api/chat") and json["options"]["num_ctx"] > 0
         return httpx.Response(200, json={"message": {"content": "hello"}, "prompt_eval_count": 12,
                                          "eval_count": 3}, request=httpx.Request("POST", url))
@@ -79,7 +88,9 @@ def test_ollama_client_reads_token_counts(monkeypatch):
 
 
 def test_openai_client_reads_usage_and_errors(monkeypatch):
+    """The OpenAI-compatible client reads usage and raises on errors."""
     def fake_post(url, json, headers, timeout):
+        """Stand-in for httpx.post that returns a canned response."""
         return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}],
                                          "usage": {"prompt_tokens": 7, "completion_tokens": 2}},
                               request=httpx.Request("POST", url))
@@ -88,6 +99,7 @@ def test_openai_client_reads_usage_and_errors(monkeypatch):
     assert record.total_tokens == 9
 
     def failing_post(*a, **k):
+        """Stand-in for httpx.post that always fails to connect."""
         raise httpx.ConnectError("refused")
     monkeypatch.setattr(httpx, "post", failing_post)
     with pytest.raises(LLMError):
@@ -104,6 +116,7 @@ def test_openai_client_retries_rate_limit_and_counts_reasoning(monkeypatch):
     sleeps, payloads = [], []
 
     def fake_post(url, json, headers, timeout):
+        """Stand-in for httpx.post that returns a canned response."""
         payloads.append(json)
         resp = replies.pop(0)
         resp.request = httpx.Request("POST", url)
@@ -119,12 +132,14 @@ def test_openai_client_retries_rate_limit_and_counts_reasoning(monkeypatch):
 
 
 def test_safe_test_env_drops_secrets():
+    """Secret-looking variables are removed from the test environment."""
     env = safe_test_env({"LLM_API_KEY": "sk-1", "GEMINI_API_KEY": "g", "GITHUB_TOKEN": "t",
                          "DB_PASSWORD": "p", "PATH": "/bin", "AUTHOR_NAME": "Me", "LLM_MODEL": "m"})
     assert env == {"PATH": "/bin", "AUTHOR_NAME": "Me", "LLM_MODEL": "m"}
 
 
 def test_generated_tests_cannot_read_api_key(tmp_path, monkeypatch):
+    """Generated tests run without access to LLM_API_KEY."""
     monkeypatch.setenv("LLM_API_KEY", "sk-secret")
     ws = Workspace(tmp_path)
     ws.write_files({"tests/test_env.py": (
@@ -134,6 +149,7 @@ def test_generated_tests_cannot_read_api_key(tmp_path, monkeypatch):
 
 
 def test_snapshot_and_restore(tmp_path):
+    """A snapshot restores changed, deleted and newly created files."""
     ws = Workspace(tmp_path)
     ws.write_files({"a.py": "x = 1\n", "pkg/b.py": "y = 2\n"})
     assert ws.snapshot("s") == 2
@@ -153,6 +169,7 @@ def test_openai_client_json_mode_with_fallback(monkeypatch):
     payloads = []
 
     def fake_post(url, json, headers, timeout):
+        """Stand-in for httpx.post that returns a canned response."""
         payloads.append(dict(json))
         if "response_format" in json:
             return httpx.Response(400, json={"error": "response_format not supported"},

@@ -25,7 +25,9 @@ def run(coro):
 
 
 def test_each_agent_exposes_its_tool():
+    """Each agent MCP server lists exactly the one tool for its role."""
     async def go():
+        """Run this test's async steps."""
         names = {}
         for role in ("analyst", "architect", "coder", "tester", "debugger"):
             async with open_session(AGENT, "--role", role) as session:
@@ -36,7 +38,9 @@ def test_each_agent_exposes_its_tool():
 
 
 def test_workspace_client_enforces_allow_list(tmp_path):
+    """An agent's workspace client refuses tools outside its allow-list."""
     async def go():
+        """Run this test's async steps."""
         async with WorkspaceClient(str(tmp_path), {"write_files"}) as ws:
             await ws.call("write_files", files={"a.py": "x = 1\n"})
             with pytest.raises(PermissionError):
@@ -46,10 +50,12 @@ def test_workspace_client_enforces_allow_list(tmp_path):
 
 
 def test_debugger_agent_repairs_broken_code(reference_project):
+    """The Debugger agent fixes a deliberately broken module over real MCP stdio."""
     analytics = reference_project / "customer_feedback_tracker" / "analytics.py"
     analytics.write_text(analytics.read_text().replace("promoters - detractors", "promoters + detractors"))
 
     async def go():
+        """Run this test's async steps."""
         async with open_session("ai_coder.servers.workspace_server", "--root", str(reference_project)) as ws:
             before = await call_json(ws, "run_tests", {"timeout": 120})
             async with open_session(AGENT, "--role", "debugger") as dbg:
@@ -67,6 +73,7 @@ def test_debugger_agent_repairs_broken_code(reference_project):
 
 
 def test_full_pipeline_with_mock_llm(tmp_path):
+    """The whole pipeline runs end to end and saves code, tests, ZIP and usage report."""
     description, requirements = split_spec((SPECS_DIR / "customer_feedback_tracker.md").read_text())
     events = []
     orch = Orchestrator(Settings(provider="mock"), on_event=events.append, output_dir=tmp_path)
@@ -84,6 +91,7 @@ def test_full_pipeline_with_mock_llm(tmp_path):
 
 
 def test_web_ui_endpoints():
+    """The web UI serves the page, the config, input validation and 404s."""
     from ai_coder.ui.app import app
 
     client = app.test_client()
@@ -102,6 +110,7 @@ def _debug_loop_with_fake_debugger(project, new_source, settings=None):
     calls = []
 
     async def fake_call_agent(session, role, tool, args):
+        """Fake Debugger: overwrite analytics.py and report it as changed."""
         calls.append(role)
         (project / target).write_text(new_source)
         return {"ok": True, "changed": [target], "syntax_errors": []}
@@ -109,6 +118,7 @@ def _debug_loop_with_fake_debugger(project, new_source, settings=None):
     orch._call_agent = fake_call_agent
 
     async def go():
+        """Run this test's async steps."""
         async with open_session("ai_coder.servers.workspace_server", "--root", str(project)) as ws:
             result = RunResult(job_id="t", project_dir=str(project), success=False)
             report = await orch._debug_loop(ws, None, {}, str(project), result)
@@ -119,6 +129,7 @@ def _debug_loop_with_fake_debugger(project, new_source, settings=None):
 
 
 def test_debug_loop_rolls_back_a_round_that_makes_things_worse(reference_project):
+    """A Debugger round that makes tests worse is undone and the loop stops."""
     analytics = reference_project / "customer_feedback_tracker" / "analytics.py"
     broken_once = analytics.read_text().replace("promoters - detractors", "promoters + detractors")
     analytics.write_text(broken_once)
@@ -131,6 +142,7 @@ def test_debug_loop_rolls_back_a_round_that_makes_things_worse(reference_project
 
 
 def test_debug_loop_keeps_a_round_that_fixes_the_tests(reference_project):
+    """A Debugger round that fixes the tests is kept."""
     analytics = reference_project / "customer_feedback_tracker" / "analytics.py"
     good = analytics.read_text()
     analytics.write_text(good.replace("promoters - detractors", "promoters + detractors"))
@@ -142,6 +154,7 @@ def test_debug_loop_keeps_a_round_that_fixes_the_tests(reference_project):
 
 
 def test_first_leaf_unwraps_nested_exception_groups():
+    """Nested exception groups are unwrapped to the real error."""
     from ai_coder.orchestrator import _first_leaf
 
     try:
